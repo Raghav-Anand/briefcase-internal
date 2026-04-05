@@ -1,0 +1,37 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test cache and coverage
+*.test
+*.out
+coverage.html
+
+# Go workspace
+go.work
+go.work.sum
+
+# Environment / credentials
+.env
+*.env
+credentials.json
+service-account*.json
+*-service-account.json
+
+# macOS
+.DS_Store
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Claude Docs
+claude-docs/
+
+firebase-debug.log
+firestore-debug.log

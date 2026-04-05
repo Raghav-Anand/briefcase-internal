@@ -1,0 +1,103 @@
+name: Release
+
+on:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: write  # needed to push tags
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache: true
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: temurin
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Start fake-gcs-server
+        run: |
+          docker run -d --name fake-gcs -p 4443:4443 \
+            fsouza/fake-gcs-server -scheme http -port 4443
+          for i in $(seq 1 15); do
+            curl -sf http://localhost:4443/ > /dev/null 2>&1 && break
+            sleep 1
+          done
+
+      - name: Start Firestore emulator
+        run: |
+          firebase emulators:start --only firestore --project test-project &
+          for i in $(seq 1 30); do
+            nc -z localhost 8080 && break
+            sleep 1
+          done
+
+      - name: Run tests
+        env:
+          FIRESTORE_EMULATOR_HOST: localhost:8080
+          STORAGE_EMULATOR_HOST: localhost:4443
+        run: go test ./...
+
+  tag:
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # need full history to find existing tags
+
+      - name: Bump version based on conventional commits and push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Find the latest semver tag; default to v0.0.0 if none exists.
+          LATEST=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -1)
+          MAJOR=0; MINOR=0; PATCH=0
+          if [ -n "$LATEST" ]; then
+            MAJOR=$(echo "$LATEST" | cut -d. -f1 | tr -d 'v')
+            MINOR=$(echo "$LATEST" | cut -d. -f2)
+            PATCH=$(echo "$LATEST" | cut -d. -f3)
+          fi
+
+          # Collect commits since the last tag (or all commits if no tag yet).
+          if [ -n "$LATEST" ]; then
+            COMMITS=$(git log "${LATEST}..HEAD" --format="%s%n%b")
+          else
+            COMMITS=$(git log --format="%s%n%b")
+          fi
+
+          # Determine bump type from conventional commit prefixes.
+          # Priority: breaking > feat > patch.
+          BUMP="patch"
+          if echo "$COMMITS" | grep -qE '(^|\n)BREAKING CHANGE:|!:'; then
+            BUMP="major"
+          elif echo "$COMMITS" | grep -qE '^feat(\(.+\))?:'; then
+            BUMP="minor"
+          fi
+
+          case "$BUMP" in
+            major) NEW_TAG="v$((MAJOR + 1)).0.0" ;;
+            minor) NEW_TAG="v${MAJOR}.$((MINOR + 1)).0" ;;
+            patch) NEW_TAG="v${MAJOR}.${MINOR}.$((PATCH + 1))" ;;
+          esac
+
+          echo "Latest tag: ${LATEST:-none}"
+          echo "Bump type:  $BUMP"
+          echo "New tag:    $NEW_TAG"
+
+          git tag "$NEW_TAG"
+          git push origin "$NEW_TAG"
