@@ -77,6 +77,22 @@ func (c *Client) GetMilestone(ctx context.Context, uid, pid, mid string) (*model
 	return &m, nil
 }
 
+// UpdateMilestone updates editable fields (title, description, due_date) on a milestone.
+// Only keys present in updates are modified; status and completion state are unchanged.
+func (c *Client) UpdateMilestone(ctx context.Context, uid, pid, mid string, updates map[string]interface{}) error {
+	firestoreUpdates := make([]firestore.Update, 0, len(updates))
+	for k, v := range updates {
+		firestoreUpdates = append(firestoreUpdates, firestore.Update{Path: k, Value: v})
+	}
+	if len(firestoreUpdates) == 0 {
+		return nil
+	}
+	if _, err := c.milestonesCol(uid, pid).Doc(mid).Update(ctx, firestoreUpdates); err != nil {
+		return fmt.Errorf("UpdateMilestone %s: %w", mid, err)
+	}
+	return nil
+}
+
 // CompleteMilestone marks a milestone as completed and decrements the project's open_milestone_count.
 func (c *Client) CompleteMilestone(ctx context.Context, uid, pid, mid string) error {
 	now := time.Now()
