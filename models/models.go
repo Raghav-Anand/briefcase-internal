@@ -101,6 +101,17 @@ type RepoDocMeta struct {
 	UpdatedAt time.Time `firestore:"updated_at" json:"updated_at"`
 }
 
+// Repo represents a linked repository at users/{userId}/projects/{projectId}/repos/{repoId}.
+type Repo struct {
+	ID          string    `firestore:"-" json:"id"`
+	Name        string    `firestore:"name" json:"name"`
+	URL         string    `firestore:"url" json:"url"`
+	Description string    `firestore:"description,omitempty" json:"description,omitempty"`
+	Language    string    `firestore:"language,omitempty" json:"language,omitempty"`
+	CreatedAt   time.Time `firestore:"created_at" json:"created_at"`
+	UpdatedAt   time.Time `firestore:"updated_at" json:"updated_at"`
+}
+
 // ToolCallEntry represents a tool_call_log document at .../sessions/{sessionId}/tool_call_log/{logId}.
 type ToolCallEntry struct {
 	ID       string                 `firestore:"-" json:"id"`
@@ -144,6 +155,13 @@ type CreateNoteInput struct {
 	Content   string `json:"content"`
 	SessionID string `json:"session_id"`
 	NoteType  string `json:"note_type"`
+}
+
+type CreateRepoInput struct {
+	Name        string `json:"name"`
+	URL         string `json:"url"`
+	Description string `json:"description,omitempty"`
+	Language    string `json:"language,omitempty"`
 }
 
 // DocInput is used for creating or updating a repo doc.
