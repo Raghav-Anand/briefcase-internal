@@ -71,6 +71,10 @@ func (c *Client) repoDocsCol(uid, pid string) *firestore.CollectionRef {
 	return c.projectDoc(uid, pid).Collection("repo_docs")
 }
 
+func (c *Client) reposCol(uid, pid string) *firestore.CollectionRef {
+	return c.projectDoc(uid, pid).Collection("repos")
+}
+
 func (c *Client) toolCallLogCol(uid, pid, sid string) *firestore.CollectionRef {
 	return c.sessionDoc(uid, pid, sid).Collection("tool_call_log")
 }
