@@ -19,6 +19,7 @@ func (c *Client) CreateProject(ctx context.Context, uid string, p *models.Create
 		"repo_url":              p.RepoURL,
 		"tech_stack":            p.TechStack,
 		"open_milestone_count":  0,
+		"milestone_seq":         0,
 		"created_at":            now,
 		"updated_at":            now,
 	})
