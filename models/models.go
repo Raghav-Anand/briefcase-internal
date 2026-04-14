@@ -46,6 +46,7 @@ type Session struct {
 type MilestoneTask struct {
 	ID          string     `firestore:"id" json:"id"`
 	Title       string     `firestore:"title" json:"title"`
+	RepoName    string     `firestore:"repo_name,omitempty" json:"repo_name,omitempty"` // must match an existing repo name on the project
 	Completed   bool       `firestore:"completed" json:"completed"`
 	CompletedAt *time.Time `firestore:"completed_at,omitempty" json:"completed_at,omitempty"`
 }
@@ -148,12 +149,18 @@ type CreateProjectInput struct {
 	TechStack   []string `json:"tech_stack,omitempty"`
 }
 
+// MilestoneTaskInput is used when creating tasks (at milestone creation or later).
+type MilestoneTaskInput struct {
+	Title    string `json:"title"`
+	RepoName string `json:"repo_name,omitempty"` // must match an existing repo name on the project
+}
+
 type CreateMilestoneInput struct {
-	Title       string     `json:"title"`
-	Description string     `json:"description,omitempty"`
-	DueDate     *time.Time `json:"due_date,omitempty"`
-	SessionID   string     `json:"session_id"`
-	Tasks       []string   `json:"tasks,omitempty"` // optional list of task titles to pre-populate
+	Title       string               `json:"title"`
+	Description string               `json:"description,omitempty"`
+	DueDate     *time.Time           `json:"due_date,omitempty"`
+	SessionID   string               `json:"session_id"`
+	Tasks       []MilestoneTaskInput `json:"tasks,omitempty"` // optional tasks to pre-populate
 }
 
 type CreateDecisionInput struct {
