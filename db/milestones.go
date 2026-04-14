@@ -10,6 +10,23 @@ import (
 	"github.com/raghav-anand/briefcase-internal/models"
 )
 
+// validRepoName returns an error if repoName is non-empty and does not match any repo on the project.
+func (c *Client) validRepoName(ctx context.Context, uid, pid, repoName string) error {
+	if repoName == "" {
+		return nil
+	}
+	repos, err := c.ListRepos(ctx, uid, pid)
+	if err != nil {
+		return fmt.Errorf("validRepoName: %w", err)
+	}
+	for _, r := range repos {
+		if r.Name == repoName {
+			return nil
+		}
+	}
+	return fmt.Errorf("repo %q not found on project", repoName)
+}
+
 // CreateMilestone creates a new milestone for a project.
 // It atomically increments the project's milestone_seq counter (used as the human-readable
 // sequential identifier, e.g. M-1, M-2) and the open_milestone_count.
@@ -17,12 +34,16 @@ import (
 func (c *Client) CreateMilestone(ctx context.Context, uid, pid string, m *models.CreateMilestoneInput) (string, error) {
 	now := time.Now()
 
-	// Build initial tasks from provided titles.
+	// Validate repo names and build initial tasks.
 	tasks := make([]models.MilestoneTask, 0, len(m.Tasks))
-	for _, title := range m.Tasks {
+	for _, t := range m.Tasks {
+		if err := c.validRepoName(ctx, uid, pid, t.RepoName); err != nil {
+			return "", fmt.Errorf("CreateMilestone task %q: %w", t.Title, err)
+		}
 		tasks = append(tasks, models.MilestoneTask{
 			ID:        uuid.New().String(),
-			Title:     title,
+			Title:     t.Title,
+			RepoName:  t.RepoName,
 			Completed: false,
 		})
 	}
@@ -176,8 +197,13 @@ func (c *Client) UncompleteMilestone(ctx context.Context, uid, pid, mid string) 
 }
 
 // AddMilestoneTask appends a new task to a milestone's task list.
+// repoName is optional; if non-empty it must match an existing repo name on the project.
 // Returns the new task's ID.
-func (c *Client) AddMilestoneTask(ctx context.Context, uid, pid, mid, title string) (string, error) {
+func (c *Client) AddMilestoneTask(ctx context.Context, uid, pid, mid, title, repoName string) (string, error) {
+	if err := c.validRepoName(ctx, uid, pid, repoName); err != nil {
+		return "", fmt.Errorf("AddMilestoneTask: %w", err)
+	}
+
 	taskID := uuid.New().String()
 
 	var newTasks []models.MilestoneTask
@@ -193,6 +219,7 @@ func (c *Client) AddMilestoneTask(ctx context.Context, uid, pid, mid, title stri
 		newTasks = append(m.Tasks, models.MilestoneTask{
 			ID:        taskID,
 			Title:     title,
+			RepoName:  repoName,
 			Completed: false,
 		})
 		return tx.Update(c.milestonesCol(uid, pid).Doc(mid), []firestore.Update{

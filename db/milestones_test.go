@@ -15,12 +15,21 @@ func TestMilestones(t *testing.T) {
 
 	pid, _ := c.CreateProject(ctx, uid, &models.CreateProjectInput{Name: "Milestone Test"})
 
-	// --- CreateMilestone (with pre-populated tasks) ---
+	// Add a repo so we can validate repo name references.
+	_, _ = c.AddRepo(ctx, uid, pid, &models.CreateRepoInput{
+		Name: "briefcase-api",
+		URL:  "https://github.com/raghav-anand/briefcase-api",
+	})
+
+	// --- CreateMilestone (with pre-populated tasks, one with a repo) ---
 	mid, err := c.CreateMilestone(ctx, uid, pid, &models.CreateMilestoneInput{
 		Title:       "Launch v1",
 		Description: "Ship the first version",
 		SessionID:   "sess-1",
-		Tasks:       []string{"Write tests", "Update docs"},
+		Tasks: []models.MilestoneTaskInput{
+			{Title: "Write tests", RepoName: "briefcase-api"},
+			{Title: "Update docs"},
+		},
 	})
 	if err != nil {
 		t.Fatalf("CreateMilestone: %v", err)
@@ -67,6 +76,12 @@ func TestMilestones(t *testing.T) {
 	if m.Tasks[0].Completed {
 		t.Error("Tasks[0].Completed should be false")
 	}
+	if m.Tasks[0].RepoName != "briefcase-api" {
+		t.Errorf("Tasks[0].RepoName: got %q, want \"briefcase-api\"", m.Tasks[0].RepoName)
+	}
+	if m.Tasks[1].RepoName != "" {
+		t.Errorf("Tasks[1].RepoName: got %q, want empty", m.Tasks[1].RepoName)
+	}
 
 	// --- Second milestone gets seq=2 ---
 	mid2, err := c.CreateMilestone(ctx, uid, pid, &models.CreateMilestoneInput{
@@ -104,8 +119,14 @@ func TestMilestones(t *testing.T) {
 		t.Error("no completed milestones expected yet")
 	}
 
-	// --- AddMilestoneTask ---
-	taskID, err := c.AddMilestoneTask(ctx, uid, pid, mid, "Deploy to staging")
+	// --- AddMilestoneTask (invalid repo name should fail) ---
+	_, err = c.AddMilestoneTask(ctx, uid, pid, mid, "Bad task", "nonexistent-repo")
+	if err == nil {
+		t.Error("AddMilestoneTask with unknown repo name should return error")
+	}
+
+	// --- AddMilestoneTask (valid repo name) ---
+	taskID, err := c.AddMilestoneTask(ctx, uid, pid, mid, "Deploy to staging", "briefcase-api")
 	if err != nil {
 		t.Fatalf("AddMilestoneTask: %v", err)
 	}
