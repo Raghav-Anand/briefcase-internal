@@ -22,6 +22,7 @@ type Project struct {
 	LastSessionID      string    `firestore:"last_session_id,omitempty" json:"last_session_id,omitempty"`
 	LastSessionSummary string    `firestore:"last_session_summary,omitempty" json:"last_session_summary,omitempty"`
 	OpenMilestoneCount int       `firestore:"open_milestone_count" json:"open_milestone_count"`
+	MilestoneSeq       int       `firestore:"milestone_seq" json:"milestone_seq"` // counter for sequential milestone identifiers
 	CreatedAt          time.Time `firestore:"created_at" json:"created_at"`
 	UpdatedAt          time.Time `firestore:"updated_at" json:"updated_at"`
 }
@@ -41,16 +42,26 @@ type Session struct {
 	CreatedAt     time.Time  `firestore:"created_at" json:"created_at"`
 }
 
+// MilestoneTask is a checklist item within a milestone.
+type MilestoneTask struct {
+	ID          string     `firestore:"id" json:"id"`
+	Title       string     `firestore:"title" json:"title"`
+	Completed   bool       `firestore:"completed" json:"completed"`
+	CompletedAt *time.Time `firestore:"completed_at,omitempty" json:"completed_at,omitempty"`
+}
+
 // Milestone represents a milestone document at users/{userId}/projects/{projectId}/milestones/{milestoneId}.
 type Milestone struct {
-	ID          string     `firestore:"-" json:"id"`
-	Title       string     `firestore:"title" json:"title"`
-	Description string     `firestore:"description,omitempty" json:"description,omitempty"`
-	DueDate     *time.Time `firestore:"due_date,omitempty" json:"due_date,omitempty"`
-	CompletedAt *time.Time `firestore:"completed_at,omitempty" json:"completed_at,omitempty"`
-	Status      string     `firestore:"status" json:"status"` // "open" | "completed"
-	SessionID   string     `firestore:"session_id" json:"session_id"`
-	CreatedAt   time.Time  `firestore:"created_at" json:"created_at"`
+	ID          string          `firestore:"-" json:"id"`
+	Seq         int             `firestore:"seq" json:"seq"`                     // sequential identifier within the project (1, 2, 3…)
+	Title       string          `firestore:"title" json:"title"`
+	Description string          `firestore:"description,omitempty" json:"description,omitempty"`
+	Tasks       []MilestoneTask `firestore:"tasks,omitempty" json:"tasks,omitempty"`
+	DueDate     *time.Time      `firestore:"due_date,omitempty" json:"due_date,omitempty"`
+	CompletedAt *time.Time      `firestore:"completed_at,omitempty" json:"completed_at,omitempty"`
+	Status      string          `firestore:"status" json:"status"` // "open" | "completed"
+	SessionID   string          `firestore:"session_id" json:"session_id"`
+	CreatedAt   time.Time       `firestore:"created_at" json:"created_at"`
 }
 
 // Decision represents a decision document at users/{userId}/projects/{projectId}/decisions/{decisionId}.
@@ -142,6 +153,7 @@ type CreateMilestoneInput struct {
 	Description string     `json:"description,omitempty"`
 	DueDate     *time.Time `json:"due_date,omitempty"`
 	SessionID   string     `json:"session_id"`
+	Tasks       []string   `json:"tasks,omitempty"` // optional list of task titles to pre-populate
 }
 
 type CreateDecisionInput struct {
