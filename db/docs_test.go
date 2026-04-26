@@ -108,6 +108,28 @@ func TestDocs_Inline(t *testing.T) {
 			t.Errorf("type filter returned wrong type: %q", m.DocType)
 		}
 	}
+
+	// --- DeleteDoc ---
+	if err := c.DeleteDoc(ctx, uid, pid, docID, nil); err != nil {
+		t.Fatalf("DeleteDoc: %v", err)
+	}
+
+	// Verify the doc is gone.
+	_, err = c.GetDoc(ctx, uid, pid, docID, nil)
+	if err == nil {
+		t.Error("expected error getting deleted doc, got nil")
+	}
+
+	// Verify it no longer appears in list.
+	remaining, err := c.ListDocs(ctx, uid, pid, nil)
+	if err != nil {
+		t.Fatalf("ListDocs after delete: %v", err)
+	}
+	for _, m := range remaining {
+		if m.ID == docID {
+			t.Errorf("deleted doc %q still appears in ListDocs", docID)
+		}
+	}
 }
 
 func TestDocs_LargeContent(t *testing.T) {
