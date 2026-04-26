@@ -120,6 +120,28 @@ func (c *Client) GetDoc(ctx context.Context, uid, pid, did string, gcsClient *bs
 	return &d, nil
 }
 
+// DeleteDoc removes a doc from Firestore and, if it was stored in Cloud Storage, from GCS.
+func (c *Client) DeleteDoc(ctx context.Context, uid, pid, did string, gcsClient *bstorage.GCSClient) error {
+	ref := c.repoDocsCol(uid, pid).Doc(did)
+	snap, err := ref.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("DeleteDoc get %s: %w", did, err)
+	}
+
+	if gcsClient != nil {
+		if gcsPath, ok := snap.Data()["gcs_path"].(string); ok && gcsPath != "" {
+			if err := gcsClient.Delete(ctx, gcsPath); err != nil {
+				return fmt.Errorf("DeleteDoc GCS delete: %w", err)
+			}
+		}
+	}
+
+	if _, err := ref.Delete(ctx); err != nil {
+		return fmt.Errorf("DeleteDoc firestore delete %s: %w", did, err)
+	}
+	return nil
+}
+
 // ListDocs returns doc metadata (without content) for a project, ordered by most recently updated.
 // Pass a non-nil docType to filter by type.
 func (c *Client) ListDocs(ctx context.Context, uid, pid string, docType *string) ([]models.RepoDocMeta, error) {
