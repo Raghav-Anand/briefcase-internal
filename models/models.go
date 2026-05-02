@@ -90,6 +90,8 @@ type RepoDoc struct {
 	Title     string    `firestore:"title" json:"title"`
 	DocType   string    `firestore:"doc_type" json:"doc_type"` // "api_docs" | "architecture" | "readme" | "custom"
 	Format    string    `firestore:"format" json:"format"`     // "markdown" | "mermaid"
+	Summary   string    `firestore:"summary,omitempty" json:"summary,omitempty"`
+	Headings  []string  `firestore:"headings,omitempty" json:"headings,omitempty"`
 	Content   string    `firestore:"content,omitempty" json:"content,omitempty"`
 	GCSPath   string    `firestore:"gcs_path,omitempty" json:"gcs_path,omitempty"`
 	Version   int       `firestore:"version" json:"version"`
@@ -105,6 +107,8 @@ type RepoDocMeta struct {
 	Title     string    `firestore:"title" json:"title"`
 	DocType   string    `firestore:"doc_type" json:"doc_type"`
 	Format    string    `firestore:"format" json:"format"`
+	Summary   string    `firestore:"summary,omitempty" json:"summary,omitempty"`
+	Headings  []string  `firestore:"headings,omitempty" json:"headings,omitempty"`
 	GCSPath   string    `firestore:"gcs_path,omitempty" json:"gcs_path,omitempty"`
 	Version   int       `firestore:"version" json:"version"`
 	UpdatedBy string    `firestore:"updated_by" json:"updated_by"`
@@ -190,6 +194,7 @@ type DocInput struct {
 	Title     string `json:"title"`
 	DocType   string `json:"doc_type"`
 	Format    string `json:"format"`
+	Summary   string `json:"summary,omitempty"`
 	Content   string `json:"content"`
 	UpdatedBy string `json:"updated_by"`
 	SessionID string `json:"session_id"`

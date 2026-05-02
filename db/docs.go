@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/firestore"
@@ -14,6 +15,33 @@ import (
 // maxInlineBytes is the content size threshold for inline vs. Cloud Storage.
 // Docs smaller than this are stored directly in Firestore; larger docs go to GCS.
 const maxInlineBytes = 500 * 1024
+
+// extractHeadings pulls heading text from markdown content (lines starting with one or more '#').
+// Returns nil for non-markdown formats.
+func extractHeadings(content, format string) []string {
+	if format != "markdown" {
+		return nil
+	}
+	var headings []string
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimRight(line, "\r")
+		if !strings.HasPrefix(line, "#") {
+			continue
+		}
+		i := strings.IndexByte(line, ' ')
+		if i < 0 {
+			continue
+		}
+		// Require every character before the space to be '#'.
+		if strings.IndexFunc(line[:i], func(r rune) bool { return r != '#' }) != -1 {
+			continue
+		}
+		if text := strings.TrimSpace(line[i+1:]); text != "" {
+			headings = append(headings, text)
+		}
+	}
+	return headings
+}
 
 // UpsertDoc creates or updates a repo doc. If doc.ID is set, the existing doc is updated;
 // otherwise a new doc is created. Content larger than maxInlineBytes is stored in Cloud Storage.
@@ -63,6 +91,8 @@ func (c *Client) UpsertDoc(ctx context.Context, uid, pid string, doc *models.Doc
 		"title":      doc.Title,
 		"doc_type":   doc.DocType,
 		"format":     doc.Format,
+		"summary":    doc.Summary,
+		"headings":   extractHeadings(doc.Content, doc.Format),
 		"version":    version,
 		"updated_by": doc.UpdatedBy,
 		"session_id": doc.SessionID,
