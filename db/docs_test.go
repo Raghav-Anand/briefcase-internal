@@ -162,3 +162,98 @@ func TestDocs_LargeContent(t *testing.T) {
 		t.Error("expected error for large content with nil GCS client, got nil")
 	}
 }
+
+func TestDocs_SummaryAndHeadings(t *testing.T) {
+	requireEmulator(t)
+	c := newTestClient(t)
+	ctx := context.Background()
+	uid := testUID(t)
+
+	pid, _ := c.CreateProject(ctx, uid, &models.CreateProjectInput{Name: "Summary Test"})
+
+	mdContent := "# Overview\n\nSome text.\n\n## Installation\n\nMore text.\n\n### Advanced\n\nEven more."
+	input := &models.DocInput{
+		Title:     "README",
+		DocType:   "readme",
+		Format:    "markdown",
+		Summary:   "A short summary of the README.",
+		Content:   mdContent,
+		UpdatedBy: "claude",
+		SessionID: "sess-1",
+	}
+
+	docID, _, err := c.UpsertDoc(ctx, uid, pid, input, nil)
+	if err != nil {
+		t.Fatalf("UpsertDoc: %v", err)
+	}
+
+	doc, err := c.GetDoc(ctx, uid, pid, docID, nil)
+	if err != nil {
+		t.Fatalf("GetDoc: %v", err)
+	}
+	if doc.Summary != "A short summary of the README." {
+		t.Errorf("Summary: got %q", doc.Summary)
+	}
+	wantHeadings := []string{"Overview", "Installation", "Advanced"}
+	if len(doc.Headings) != len(wantHeadings) {
+		t.Fatalf("Headings len: got %d, want %d: %v", len(doc.Headings), len(wantHeadings), doc.Headings)
+	}
+	for i, h := range wantHeadings {
+		if doc.Headings[i] != h {
+			t.Errorf("Headings[%d]: got %q, want %q", i, doc.Headings[i], h)
+		}
+	}
+
+	// Headings and summary appear in ListDocs metadata too.
+	metas, err := c.ListDocs(ctx, uid, pid, nil)
+	if err != nil {
+		t.Fatalf("ListDocs: %v", err)
+	}
+	var meta *models.RepoDocMeta
+	for i := range metas {
+		if metas[i].ID == docID {
+			meta = &metas[i]
+			break
+		}
+	}
+	if meta == nil {
+		t.Fatal("doc not found in ListDocs")
+	}
+	if meta.Summary != "A short summary of the README." {
+		t.Errorf("meta.Summary: got %q", meta.Summary)
+	}
+	if len(meta.Headings) != len(wantHeadings) {
+		t.Errorf("meta.Headings len: got %d, want %d", len(meta.Headings), len(wantHeadings))
+	}
+}
+
+func TestDocs_HeadingsNotExtractedForMermaid(t *testing.T) {
+	requireEmulator(t)
+	c := newTestClient(t)
+	ctx := context.Background()
+	uid := testUID(t)
+
+	pid, _ := c.CreateProject(ctx, uid, &models.CreateProjectInput{Name: "Mermaid Test"})
+
+	input := &models.DocInput{
+		Title:     "Diagram",
+		DocType:   "architecture",
+		Format:    "mermaid",
+		Content:   "graph TD\n  # not a heading\n  A-->B",
+		UpdatedBy: "claude",
+		SessionID: "sess-1",
+	}
+
+	docID, _, err := c.UpsertDoc(ctx, uid, pid, input, nil)
+	if err != nil {
+		t.Fatalf("UpsertDoc: %v", err)
+	}
+
+	doc, err := c.GetDoc(ctx, uid, pid, docID, nil)
+	if err != nil {
+		t.Fatalf("GetDoc: %v", err)
+	}
+	if len(doc.Headings) != 0 {
+		t.Errorf("expected no headings for mermaid format, got %v", doc.Headings)
+	}
+}
